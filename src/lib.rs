@@ -37,15 +37,14 @@ pub fn run(path: &str) {
             if command::process(cmd, &mut agenda).is_err() {
                 println!("Failed processing command!\n");
             } else {
+                let mut list = open_data_file(path);
+
+                list.write(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
+                    .expect("Failed to write updated Agenda to data file.");
             }
         } else {
             println!("Use the 'help' command to see a list of available commands.\n");
         }
-
-        let mut list = open_data_file(path);
-
-        list.write(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
-            .expect("Failed to write updated Agenda to data file.");
     }
 }
 
