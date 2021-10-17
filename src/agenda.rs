@@ -16,4 +16,11 @@ impl Agenda {
         let agenda: Agenda = serde_json::from_str(&data)?;
         Ok(agenda)
     }
+
+    pub fn new() -> Self {
+        Self {
+            tasks: Vec::new(),
+            cfg: config::Config::new(),
+        }
+    }
 }

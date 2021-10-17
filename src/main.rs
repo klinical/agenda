@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, OpenOptions},
+    fs::{self},
     io::ErrorKind,
 };
 
@@ -13,12 +13,5 @@ fn main() {
         }
     }
 
-    let mut list = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(F_PATH)
-        .expect("Failed to open data file.");
-
-    agenda::run(&mut list);
+    agenda::run(F_PATH);
 }

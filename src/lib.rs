@@ -9,19 +9,36 @@ use crate::command::Command;
 
 use error::AgendaResult;
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::BufRead,
     {io, io::Write},
 };
 
-pub fn run(list: &mut File) {
+pub fn run(path: &str) {
     welcome();
 
-    let agenda = Agenda::read_from_file(list).unwrap();
+    let existed = std::path::Path::new(path).exists();
+
+    let mut list = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(path)
+        .expect("Failed to open data file.");
+
+    let agenda = if existed {
+        Agenda::read_from_file(&mut list).unwrap()
+    } else {
+        let agenda = Agenda::new();
+        let _ = list
+            .write(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
+            .unwrap();
+        agenda
+    };
 
     loop {
         if let Some(cmd) = prompt() {
-            if process(cmd, list).is_err() {
+            if process(cmd, &mut list).is_err() {
                 println!("Failed processing command!\n");
             } else {
             }
