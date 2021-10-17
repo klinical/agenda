@@ -1,5 +1,7 @@
 use std::{fmt, str::FromStr};
 
+use crate::{agenda, error, task};
+
 #[derive(Debug, PartialEq)]
 pub enum Command {
     Help,
@@ -52,6 +54,76 @@ pub fn command_from_input(input: &str) -> Option<Command> {
             }
         }
     }
+}
+
+pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult<()> {
+    match cmd {
+        Command::Help => display_help(),
+        Command::List => display_list(agenda),
+        Command::Add => create_new_task(agenda),
+        Command::Remove => {}
+        Command::Mod => {}
+        Command::Clear => clear_screen(),
+        Command::Exit => std::process::exit(0),
+    };
+
+    Ok(())
+}
+
+pub fn create_new_task(agenda: &mut agenda::Agenda) {
+    if let Some((name, desc)) = new_task_dialog() {
+        // Create a task object
+        let new_task = task::Task::from(name, desc);
+        // Add task to the file
+        // Display a message back to the user
+        println!(
+            "New task '{}': '{}' created.",
+            new_task.name(),
+            new_task.description()
+        );
+
+        agenda.add_task(new_task);
+    }
+}
+
+fn new_task_dialog() -> Option<(String, String)> {
+    print!("Enter a taskname: ");
+    let new_task_name = crate::read_terminal_input();
+    print!("Enter a description: ");
+    let new_task_description = crate::read_terminal_input();
+
+    match (new_task_name, new_task_description) {
+        (Some(name), Some(description)) => Some((name, description)),
+        _ => None,
+    }
+}
+
+pub fn display_help() {
+    println!(
+        "** Available commands (and their aliases) **\n
+    'help'   ('h'):   Displays this menu
+    'list'   ('ls'):  List all current tasks
+    'add'    ('a'):   Open the new task creation dialog
+    'remove' ('rm'):  Remove a task by name (rm [taskname])
+    'modify' ('mod'): Open the task modification dialog
+    'clear'  ('x'):   Clear/flush the terminal screen
+    'quit'   ('q'):   Quit the program"
+    )
+}
+
+pub fn display_list(agenda: &agenda::Agenda) {
+    agenda.tasks_iter().for_each(|task| {
+        println!(
+            "Task Name: {}\n  Description: {}\n",
+            task.name(),
+            task.description()
+        )
+    })
+}
+
+// Tested on Manjaro Linux
+pub fn clear_screen() {
+    print!("{esc}c", esc = 27 as char)
 }
 
 #[cfg(test)]

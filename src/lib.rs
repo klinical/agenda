@@ -15,18 +15,14 @@ use std::{
 };
 
 pub fn run(path: &str) {
-    welcome();
+    println!("** AGENDA - A simple todo app from the 80's!");
+    println!("** You may list the available commands by running 'help'\n");
 
     let existed = std::path::Path::new(path).exists();
 
-    let mut list = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(path)
-        .expect("Failed to open data file.");
+    let mut list = open_data_file(path);
 
-    let agenda = if existed {
+    let mut agenda = if existed {
         Agenda::read_from_file(&mut list).unwrap()
     } else {
         let agenda = Agenda::new();
@@ -38,19 +34,28 @@ pub fn run(path: &str) {
 
     loop {
         if let Some(cmd) = prompt() {
-            if process(cmd, &mut list).is_err() {
+            if command::process(cmd, &mut agenda).is_err() {
                 println!("Failed processing command!\n");
             } else {
             }
         } else {
             println!("Use the 'help' command to see a list of available commands.\n");
         }
+
+        let mut list = open_data_file(path);
+
+        list.write(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
+            .expect("Failed to write updated Agenda to data file.");
     }
 }
 
-pub fn welcome() {
-    println!("** AGENDA - A simple todo app from the 80's!");
-    println!("** You may list the available commands by running 'help'\n")
+fn open_data_file(path: &str) -> File {
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(path)
+        .expect("Failed to open data file.")
 }
 
 pub fn prompt() -> Option<Command> {
@@ -74,54 +79,4 @@ fn read_terminal_input() -> Option<String> {
         Some(Ok(x)) => Some(x),
         _ => None,
     }
-}
-
-pub fn process(cmd: Command, file: &mut File) -> AgendaResult<()> {
-    match cmd {
-        Command::Help => display_help(),
-        Command::List => display_list(),
-        Command::Add => create_new_task(file),
-        Command::Remove => {}
-        Command::Mod => {}
-        Command::Clear => clear_screen()?,
-        Command::Exit => std::process::exit(0),
-    };
-
-    Ok(())
-}
-
-fn create_new_task(file: &mut File) {
-    if let Some((name, desc)) = new_task_dialog() {
-        // Create a task object
-        let new_task = task::Task::from(name, desc);
-        // Add task to the file
-        // Display a message back to the user
-        let task_json = serde_json::to_string_pretty(&new_task).unwrap();
-        file.write(task_json.as_bytes());
-        println!(
-            "New task '{}': '{}' created.",
-            new_task.name(),
-            new_task.description()
-        );
-    }
-}
-
-fn new_task_dialog() -> Option<(String, String)> {
-    print!("Enter a taskname: ");
-    let new_task_name = read_terminal_input();
-    print!("Enter a description: ");
-    let new_task_description = read_terminal_input();
-
-    match (new_task_name, new_task_description) {
-        (Some(name), Some(description)) => Some((name, description)),
-        _ => None,
-    }
-}
-
-fn display_help() {}
-
-fn display_list() {}
-
-fn clear_screen() -> AgendaResult<()> {
-    Ok(())
 }

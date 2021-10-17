@@ -1,6 +1,10 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, slice::Iter};
 
-use crate::{config, error::AgendaResult, task};
+use crate::{
+    config,
+    error::AgendaResult,
+    task::{self, Task},
+};
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct Agenda {
@@ -22,5 +26,13 @@ impl Agenda {
             tasks: Vec::new(),
             cfg: config::Config::new(),
         }
+    }
+
+    pub fn add_task(&mut self, task: Task) {
+        self.tasks.push(task);
+    }
+
+    pub fn tasks_iter(&self) -> Iter<Task> {
+        self.tasks.iter()
     }
 }

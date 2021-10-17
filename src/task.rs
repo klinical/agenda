@@ -2,13 +2,18 @@ use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct Task {
-    description: String,
     name: String,
+    description: String,
+    priority: self::Priority, //TODO!
 }
 
 impl Task {
     pub fn from(name: String, description: String) -> Self {
-        Task { name, description }
+        Task {
+            name,
+            description,
+            priority: Priority::ImportantNotUrgent, //TODO!
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -20,6 +25,14 @@ impl Task {
     }
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub enum Priority {
+    ImportantUrgent,
+    ImportantNotUrgent,
+    NotImportantUrgent,
+    NotImportantNotUrgent,
+}
+
 mod tests {
     #[test]
     fn create_task_from() {
@@ -28,6 +41,7 @@ mod tests {
         let expected = Task {
             name: "test".to_owned(),
             description: "description".to_owned(),
+            priority: Priority::ImportantNotUrgent, //TODO!
         };
 
         let taskname = "test";
