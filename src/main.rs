@@ -1,11 +1,10 @@
-use agenda;
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::ErrorKind,
 };
 
 static F_DIR: &str = "./data/";
-static F_PATH: &str = "./data/agenda.yaml";
+static F_PATH: &str = "./data/agenda.json";
 
 fn main() {
     if let Err(e) = fs::create_dir(F_DIR) {
@@ -21,5 +20,5 @@ fn main() {
         .open(F_PATH)
         .expect("Failed to open data file.");
 
-    agenda::launch(&mut list);
+    agenda::run(&mut list);
 }

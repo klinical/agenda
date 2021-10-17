@@ -40,11 +40,11 @@ impl FromStr for Command {
 
 pub fn command_from_input(input: &str) -> Option<Command> {
     // But was it whitespace/empty?
-    if input == "\n" || input == "" || input == " " {
+    if input == "\n" || input.is_empty() || input == " " {
         None
     } else {
         // Ok - it wasn't... does it match to a valid command?
-        match Command::from_str(&input) {
+        match Command::from_str(input) {
             Ok(cmd) => Some(cmd),
             Err(cmd_err) => {
                 println!("{}", cmd_err);

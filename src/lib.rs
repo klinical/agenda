@@ -1,20 +1,27 @@
+mod agenda;
 mod command;
+mod config;
+mod error;
 mod task;
 
+use crate::agenda::Agenda;
 use crate::command::Command;
 
+use error::AgendaResult;
 use std::{
     fs::File,
     io::BufRead,
-    {io, io::Result, io::Write},
+    {io, io::Write},
 };
 
-pub fn launch(list: &File) {
+pub fn run(list: &mut File) {
     welcome();
+
+    let agenda = Agenda::read_from_file(list).unwrap();
 
     loop {
         if let Some(cmd) = prompt() {
-            if process(cmd, &list).is_err() {
+            if process(cmd, list).is_err() {
                 println!("Failed processing command!\n");
             } else {
             }
@@ -34,22 +41,25 @@ pub fn prompt() -> Option<Command> {
     let input = read_terminal_input();
 
     // Got Some input that was Ok
-    if let Some(Ok(input)) = input {
+    if let Some(input) = input {
         command::command_from_input(&input)
     } else {
         None
     }
 }
 
-fn read_terminal_input() -> Option<Result<String>> {
+fn read_terminal_input() -> Option<String> {
     let _ = io::stdout().flush();
     let stdin = io::stdin();
     let x = stdin.lock().lines().next();
 
-    x
+    match x {
+        Some(Ok(x)) => Some(x),
+        _ => None,
+    }
 }
 
-pub fn process(cmd: Command, file: &File) -> Result<()> {
+pub fn process(cmd: Command, file: &mut File) -> AgendaResult<()> {
     match cmd {
         Command::Help => display_help(),
         Command::List => display_list(),
@@ -58,18 +68,19 @@ pub fn process(cmd: Command, file: &File) -> Result<()> {
         Command::Mod => {}
         Command::Clear => clear_screen()?,
         Command::Exit => std::process::exit(0),
-        _ => {}
-    }
+    };
 
     Ok(())
 }
 
-fn create_new_task(file: &File) {
+fn create_new_task(file: &mut File) {
     if let Some((name, desc)) = new_task_dialog() {
         // Create a task object
         let new_task = task::Task::from(name, desc);
         // Add task to the file
         // Display a message back to the user
+        let task_json = serde_json::to_string_pretty(&new_task).unwrap();
+        file.write(task_json.as_bytes());
         println!(
             "New task '{}': '{}' created.",
             new_task.name(),
@@ -85,7 +96,7 @@ fn new_task_dialog() -> Option<(String, String)> {
     let new_task_description = read_terminal_input();
 
     match (new_task_name, new_task_description) {
-        (Some(Ok(name)), Some(Ok(description))) => Some((name, description)),
+        (Some(name), Some(description)) => Some((name, description)),
         _ => None,
     }
 }
@@ -94,6 +105,6 @@ fn display_help() {}
 
 fn display_list() {}
 
-fn clear_screen() -> Result<()> {
+fn clear_screen() -> AgendaResult<()> {
     Ok(())
 }

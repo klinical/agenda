@@ -1,7 +1,9 @@
-#[derive(PartialEq, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct Task {
-    name: String,
     description: String,
+    name: String,
 }
 
 impl Task {
