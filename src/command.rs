@@ -62,7 +62,7 @@ pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult
         Command::List => display_list(agenda),
         Command::Add => create_new_task(agenda),
         Command::Remove => remove_task(agenda),
-        Command::Mod => {}
+        Command::Mod => update_task(agenda),
         Command::Clear => clear_screen(),
         Command::Exit => std::process::exit(0),
     };
@@ -86,6 +86,57 @@ pub fn create_new_task(agenda: &mut agenda::Agenda) {
             Err(task_err) => println!("{}", task_err),
         }
     }
+}
+
+pub fn update_task(agenda: &mut agenda::Agenda) {
+    print!("\nEnter task name to update: ");
+    let target = crate::read_terminal_input();
+
+    // Locate the task or quit if input is empty
+    let target = match target {
+        Some(target) => agenda.task(&target),
+        None => {
+            println!("Nothing to do.");
+            return;
+        }
+    };
+
+    let task = match target {
+        Some(task) => task,
+        None => {
+            println!("No task found.");
+            return;
+        }
+    };
+
+    print!("\nEnter property name to update (desc, priority): ");
+    let property = if let Some(property) = crate::read_terminal_input() {
+        property
+    } else {
+        println!("Nothing to do.");
+        return;
+    };
+
+    print!("\nEnter new value for {}: ", &property);
+    let value = if let Some(value) = crate::read_terminal_input() {
+        value
+    } else {
+        println!("Nothing to do.");
+        return;
+    };
+
+    match property.to_lowercase().as_str() {
+        "description" | "desc" => task.set_description(value),
+        "priority" => {
+            if let Err(e) = task.set_priority(value) {
+                println!("{}", e);
+                return;
+            }
+        }
+        _ => println!("Invalid property!"),
+    }
+
+    println!("\nTask updated successfully.\n");
 }
 
 fn new_task_dialog() -> Option<(String, String, String)> {

@@ -39,4 +39,8 @@ impl Agenda {
     pub fn remove_task(&mut self, taskname: &str) -> Option<(String, Task)> {
         self.tasks.remove_entry(taskname)
     }
+
+    pub fn task(&mut self, key: &str) -> Option<&mut Task> {
+        self.tasks.get_mut(key)
+    }
 }

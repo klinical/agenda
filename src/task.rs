@@ -23,6 +23,16 @@ impl Task {
     pub fn priority(&self) -> String {
         self.priority.to_string()
     }
+
+    pub fn set_description(&mut self, new_description: String) {
+        self.description = new_description
+    }
+
+    pub fn set_priority(&mut self, new_priority: String) -> Result<(), PriorityError> {
+        self.priority = Priority::from(new_priority)?;
+
+        Ok(())
+    }
 }
 
 #[allow(clippy::enum_variant_names)]
