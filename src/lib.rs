@@ -6,11 +6,9 @@ mod task;
 
 use crate::agenda::Agenda;
 use crate::command::Command;
-
-use error::AgendaResult;
 use std::{
-    fs::{File, OpenOptions},
-    io::BufRead,
+    fs::File,
+    io::{BufRead, ErrorKind},
     {io, io::Write},
 };
 
@@ -20,26 +18,29 @@ pub fn run(path: &str) {
 
     let existed = std::path::Path::new(path).exists();
 
-    let mut list = open_data_file(path);
+    let mut list = open_data_file(path, "r");
 
     let mut agenda = if existed {
         Agenda::read_from_file(&mut list).unwrap()
     } else {
         let agenda = Agenda::new();
         let _ = list
-            .write(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
+            .write_all(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
             .unwrap();
         agenda
     };
+
+    // Ensure the file descriptor is freed before we move forward
+    std::mem::drop(list);
 
     loop {
         if let Some(cmd) = prompt() {
             if command::process(cmd, &mut agenda).is_err() {
                 println!("Failed processing command!\n");
             } else {
-                let mut list = open_data_file(path);
+                let mut file = open_data_file(path, "w");
 
-                list.write(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
+                file.write_all(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
                     .expect("Failed to write updated Agenda to data file.");
             }
         } else {
@@ -48,13 +49,21 @@ pub fn run(path: &str) {
     }
 }
 
-fn open_data_file(path: &str) -> File {
-    OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(path)
-        .expect("Failed to open data file.")
+fn open_data_file(path: &str, mode: &str) -> File {
+    let f = match mode {
+        "r" => File::open(path),
+        "w" => File::create(path),
+        _ => panic!("Invalid file opening mode"),
+    };
+
+    match f {
+        Ok(f) => f,
+        Err(error) => match error.kind() {
+            ErrorKind::NotFound => File::create(path)
+                .expect("Unable to create data file. Ensure you have the correct permissions."),
+            _ => panic!("Unable to open data file. Ensure you have the correct permissions."),
+        },
+    }
 }
 
 pub fn prompt() -> Option<Command> {

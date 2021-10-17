@@ -61,7 +61,7 @@ pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult
         Command::Help => display_help(),
         Command::List => display_list(agenda),
         Command::Add => create_new_task(agenda),
-        Command::Remove => {}
+        Command::Remove => remove_task(agenda),
         Command::Mod => {}
         Command::Clear => clear_screen(),
         Command::Exit => std::process::exit(0),
@@ -71,52 +71,81 @@ pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult
 }
 
 pub fn create_new_task(agenda: &mut agenda::Agenda) {
-    if let Some((name, desc)) = new_task_dialog() {
+    if let Some((name, desc, priority)) = new_task_dialog() {
         // Create a task object
-        let new_task = task::Task::from(name, desc);
-        // Add task to the file
-        // Display a message back to the user
-        println!(
-            "New task '{}': '{}' created.",
-            new_task.name(),
-            new_task.description()
-        );
+        let new_task = task::Task::from(desc, priority);
 
-        agenda.add_task(new_task);
+        match new_task {
+            Ok(task) => {
+                // Add task to the file
+                // Display a message back to the user
+                println!("\nNew task\n  Name: {}\n  Description: {}\n  Priority: {}\nCreated sucessfully.\n", name, task.description(), task.priority());
+
+                agenda.add_task(name, task);
+            }
+            Err(task_err) => println!("{}", task_err),
+        }
     }
 }
 
-fn new_task_dialog() -> Option<(String, String)> {
+fn new_task_dialog() -> Option<(String, String, String)> {
     print!("Enter a taskname: ");
     let new_task_name = crate::read_terminal_input();
     print!("Enter a description: ");
     let new_task_description = crate::read_terminal_input();
 
-    match (new_task_name, new_task_description) {
-        (Some(name), Some(description)) => Some((name, description)),
+    println!(
+        "\nAvailable priorities (and their aliases) (not case-sensitive)
+        Important and Urgent ('iu')
+        Important and Not Urgent ('inu')
+        Not Important and Urgent ('niu')
+        Not Important and Not Urgent ('ninu')\n
+        "
+    );
+    print!("Enter task priority, from one of the choices listed above: ");
+    let new_task_priority = crate::read_terminal_input();
+
+    match (new_task_name, new_task_description, new_task_priority) {
+        (Some(name), Some(description), Some(priority)) => Some((name, description, priority)),
         _ => None,
     }
 }
 
 pub fn display_help() {
     println!(
-        "** Available commands (and their aliases) **\n
+        "\n** Available commands (and their aliases) **\n
     'help'   ('h'):   Displays this menu
     'list'   ('ls'):  List all current tasks
     'add'    ('a'):   Open the new task creation dialog
-    'remove' ('rm'):  Remove a task by name (rm [taskname])
+    'remove' ('rm'):  Open the remove task dialog
     'modify' ('mod'): Open the task modification dialog
     'clear'  ('x'):   Clear/flush the terminal screen
-    'quit'   ('q'):   Quit the program"
+    'quit'   ('q'):   Quit the program\n"
     )
 }
 
+pub fn remove_task(agenda: &mut agenda::Agenda) {
+    print!("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ");
+    if let Some(target) = crate::read_terminal_input() {
+        if let Some((name, task)) = agenda.remove_task(&target) {
+            println!(
+                "Removed task: {} with description: {}.",
+                name,
+                task.description()
+            )
+        } else {
+            println!("No task with name {} found.", target)
+        }
+    }
+}
+
 pub fn display_list(agenda: &agenda::Agenda) {
-    agenda.tasks_iter().for_each(|task| {
+    agenda.tasks_iter().for_each(|(name, task)| {
         println!(
-            "Task Name: {}\n  Description: {}\n",
-            task.name(),
-            task.description()
+            "\nTask Name: {}\n  Description: {}\n  Priority: {}\n",
+            name,
+            task.description(),
+            task.priority(),
         )
     })
 }

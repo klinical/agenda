@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, slice::Iter};
+use std::{collections::hash_map::Iter, collections::HashMap, fs::File, io::Read};
 
 use crate::{
     config,
@@ -6,9 +6,9 @@ use crate::{
     task::{self, Task},
 };
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Agenda {
-    tasks: Vec<task::Task>,
+    tasks: HashMap<String, task::Task>,
     cfg: config::Config,
 }
 
@@ -23,16 +23,20 @@ impl Agenda {
 
     pub fn new() -> Self {
         Self {
-            tasks: Vec::new(),
+            tasks: HashMap::new(),
             cfg: config::Config::new(),
         }
     }
 
-    pub fn add_task(&mut self, task: Task) {
-        self.tasks.push(task);
+    pub fn add_task(&mut self, name: String, task: Task) {
+        self.tasks.insert(name, task);
     }
 
-    pub fn tasks_iter(&self) -> Iter<Task> {
+    pub fn tasks_iter(&self) -> Iter<String, Task> {
         self.tasks.iter()
+    }
+
+    pub fn remove_task(&mut self, taskname: &str) -> Option<(String, Task)> {
+        self.tasks.remove_entry(taskname)
     }
 }
