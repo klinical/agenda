@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr};
 
-use crate::{agenda, error, task};
+use crate::{agenda, task};
+use crate::error::AppError;
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
@@ -22,9 +23,8 @@ impl fmt::Display for CommandError {
     }
 }
 
-// This and command_from_input should be one method
 impl FromStr for Command {
-    type Err = CommandError;
+    type Err = AppError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
@@ -35,34 +35,18 @@ impl FromStr for Command {
             "modify" | "mod" => Ok(Command::Mod),
             "clear" | "x" => Ok(Command::Clear),
             "quit" | "q" => Ok(Command::Exit),
-            _ => Err(CommandError),
+            _ => Err(AppError::InputError("Invalid/unrecognized command.".to_string())),
         }
     }
 }
 
-pub fn command_from_input(input: &str) -> Option<Command> {
-    // But was it whitespace/empty?
-    if input == "\n" || input.is_empty() || input == " " {
-        None
-    } else {
-        // Ok - it wasn't... does it match to a valid command?
-        match Command::from_str(input) {
-            Ok(cmd) => Some(cmd),
-            Err(cmd_err) => {
-                println!("{}", cmd_err);
-                None
-            }
-        }
-    }
-}
-
-pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult<()> {
+pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> Result<(), AppError> {
     match cmd {
         Command::Help => display_help(),
         Command::List => display_list(agenda),
-        Command::Add => create_new_task(agenda),
-        Command::Remove => remove_task(agenda),
-        Command::Mod => update_task(agenda),
+        Command::Add => create_new_task(agenda)?,
+        Command::Remove => remove_task(agenda)?,
+        Command::Mod => update_task(agenda)?,
         Command::Clear => clear_screen(),
         Command::Exit => std::process::exit(0),
     };
@@ -70,95 +54,55 @@ pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult
     Ok(())
 }
 
-pub fn create_new_task(agenda: &mut agenda::Agenda) {
-    // Prompt user for a task-name, description, and priority
-    // priority will need to be validated, and re-prompted if necessary
-    // along the way, provide a way to quit/cancel the operation
+pub fn create_new_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+    let name = crate::prompt_input("Enter a task name: ")?;
+    let description = crate::prompt_input("Enter a description: ")?;
+    let priority = crate::prompt_input(
+        "\nAvailable priorities (and their aliases) (not case-sensitive)
+        Important and Urgent ('iu')
+        Important and Not Urgent ('inu')
+        Not Important and Urgent ('niu')
+        Not Important and Not Urgent ('ninu')\n\nEnter task priority, from one of the choices listed above:")?;
 
-    if let Some((name, desc, priority)) = new_task_dialog() {
-        // Create a task object
-        let new_task = task::Task::from(desc, priority);
-
-        match new_task {
-            Ok(task) => {
-                // Add task to the file
-                // Display a message back to the user
-                println!("\nNew task\n  Name: {}\n  Description: {}\n  Priority: {}\nCreated sucessfully.\n", name, task.description(), task.priority());
-
-                agenda.add_task(name, task);
-            }
-            Err(task_err) => println!("{}", task_err),
+    // Need to just set name here.
+    let new_task = task::Task::from(description, priority);
+    // TODO! Problem here is - what if the Priority fails to parse? Instead of sending user all the way back, we should
+    // give the user another chance to select a valid priority, or, let them cancel task creation entirely.
+    match new_task {
+        Ok(task) => {
+            println!("\nNew task\n  Name: {}\n  Description: {}\n  Priority: {}\nCreated sucessfully.\n", name, task.description(), task.priority());
+            Ok(agenda.add_task(name, task))
         }
+        Err(priority_err) => Err(AppError::InputError(priority_err.to_string())),
     }
 }
 
-pub fn update_task(agenda: &mut agenda::Agenda) {
-    let target = crate::prompt_input("\nEnter task name to update: ");
-
-    // Locate the task or quit if input is empty
-    let target = match target {
-        Some(target) => agenda.task(&target),
-        None => {
-            println!("Nothing to do.");
-            return;
-        }
-    };
-
+pub fn update_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+    let target = agenda.task(&crate::prompt_input("\nEnter task name to update: ")?);
     let task = match target {
         Some(task) => task,
         None => {
             println!("No task found.");
-            return;
+            return Ok(());
         }
     };
 
-    let property = if let Some(property) = crate::prompt_input("\nEnter property name to update (desc, priority): ") {
-        property
-    } else {
-        println!("Nothing to do.");
-        return;
-    };
-
-    let value = if let Some(value) = crate::prompt_input(&format!("\nEnter new value for {}: ", &property)) {
-        value
-    } else {
-        println!("Nothing to do.");
-        return;
-    };
+    let property = crate::prompt_input("\nEnter property name to update (desc, priority): ")?;
+    let value = crate::prompt_input(&format!("\nEnter new value for {}: ", &property))?;
 
     match property.to_lowercase().as_str() {
         "description" | "desc" => task.set_description(value),
         "priority" => {
             if let Err(e) = task.set_priority(value) {
                 println!("{}", e);
-                return;
+                return Ok(());
             }
         }
         _ => println!("Invalid property!"),
     }
 
     println!("\nTask updated successfully.\n");
-}
-
-// This might need to just be completely blown away
-fn new_task_dialog() -> Option<(String, String, String)> {
-    let new_task_name = crate::prompt_input("Enter a task name: ");
-    let new_task_description = crate::prompt_input("Enter a description: ");
-    let new_task_priority = crate::prompt_input(
-        "\nAvailable priorities (and their aliases) (not case-sensitive)
-        Important and Urgent ('iu')
-        Important and Not Urgent ('inu')
-        Not Important and Urgent ('niu')
-        Not Important and Not Urgent ('ninu')\n\nEnter task priority, from one of the choices listed above:");
-
-    if let Some(priority) = &new_task_priority {
-        println!("You entered: {}", priority);
-    }
-
-    match (new_task_name, new_task_description, new_task_priority) {
-        (Some(name), Some(description), Some(priority)) => Some((name, description, priority)),
-        _ => None,
-    }
+    Ok(())
 }
 
 pub fn display_help() {
@@ -174,17 +118,18 @@ pub fn display_help() {
     )
 }
 
-pub fn remove_task(agenda: &mut agenda::Agenda) {
-    if let Some(target) = crate::prompt_input("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ") {
-        if let Some((name, task)) = agenda.remove_task(&target) {
-            println!(
-                "Removed task: {} with description: {}.",
-                name,
-                task.description()
-            )
-        } else {
-            println!("No task with name {} found.", target)
-        }
+pub fn remove_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+    let target = crate::prompt_input("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ")?;
+    if let Some((name, task)) = agenda.remove_task(&target) {
+        println!(
+            "Removed task: {} with description: {}.",
+            name,
+            task.description()
+        );
+        Ok(())
+    } else {
+        println!("No task with name {} found.", target);
+        Err(AppError::InputError("No task with that name found.".to_string()))
     }
 }
 
@@ -206,20 +151,20 @@ pub fn clear_screen() {
 
 #[cfg(test)]
 mod tests {
-    use crate::command::*;
+    // use crate::command::*;
 
-    #[test]
-    fn add_from_input() {
-        assert!(command_from_input("add") == Some(Command::Add));
-    }
-
-    #[test]
-    fn no_command_from_input() {
-        assert!(command_from_input("") == None);
-    }
-
-    #[test]
-    fn invalid_from_input() {
-        assert!(command_from_input("DNE") == None);
-    }
+    // #[test]
+    // fn add_from_input() {
+    //     assert!(command_from_input("add") == Some(Command::Add));
+    // }
+    //
+    // #[test]
+    // fn no_command_from_input() {
+    //     assert!(command_from_input("") == None);
+    // }
+    //
+    // #[test]
+    // fn invalid_from_input() {
+    //     assert!(command_from_input("DNE") == None);
+    // }
 }

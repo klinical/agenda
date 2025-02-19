@@ -11,11 +11,13 @@ use std::{
     io::{BufRead, ErrorKind},
     {io, io::Write},
 };
+use std::str::FromStr;
+use crate::error::{AppError};
 
 pub static F_DIR: &str = "./data/";
 static F_PATH: &str = "./data/agenda.json";
 
-pub fn run() {
+pub fn run() -> Result<(), AppError>{
     println!("** AGENDA - A simple todo app from the 80's!");
     println!("** You may list the available commands by running 'help'\n");
 
@@ -37,7 +39,9 @@ pub fn run() {
     drop(list);
 
     loop {
-        if let Some(cmd) = prompt_command() {
+        // First, if there is any errors during input catch it. Then check if the command is valid
+        // Err should be handled here, unless IO error?
+        if let Ok(cmd) = Command::from_str(&prompt_input("input a command ('help' for help): ")?) {
             if command::process(cmd, &mut agenda).is_err() {
                 println!("Failed processing command!\n");
             } else {
@@ -69,25 +73,11 @@ fn open_data_file(path: &str, mode: &str) -> File {
     }
 }
 
-pub fn prompt_input(prompt: &str) -> Option<String> {
+pub fn prompt_input(prompt: &str) -> Result<String, AppError> {
     print!("{}", prompt);
     let _ = io::stdout().flush();
-    let stdin = io::stdin();
-    let x = stdin.lock().lines().next();
-
-    match x {
-        Some(Ok(x)) => Some(x),
-        _ => None,
-    }
-}
-
-pub fn prompt_command() -> Option<Command> {
-    let input = prompt_input("input a command ('help' for help): ");
-
-    // Got Some input that was Ok
-    if let Some(input) = input {
-        command::command_from_input(&input)
-    } else {
-        None
+    match io::stdin().lock().lines().next() {
+        Some(Ok(line)) => Ok(line),
+        _ => Err(AppError::InputError("Failed to read input.".to_string())),
     }
 }

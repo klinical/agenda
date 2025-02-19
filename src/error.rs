@@ -1,33 +1,35 @@
 use std::fmt;
+use std::fmt::{Display, Formatter};
 
-pub type AgendaResult<T> = Result<T, AgendaError>;
+pub type AgendaResult<T> = Result<T, AppError>;
 
-#[derive(Debug, Clone)]
-pub struct AgendaError {
-    kind: String,
-    message: String,
+#[derive(Debug)]
+pub enum AppError {
+    IOError(std::io::Error),
+    SerdeError(serde_json::Error),
+    InputError(String),
 }
 
-impl fmt::Display for AgendaError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} error: {}", self.kind, self.message)
+impl std::error::Error for AppError {}
+
+impl Display for AppError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            AppError::IOError(e) => write!(f, "IO Error: {}", e),
+            AppError::SerdeError(e) => write!(f, "(De)Serialization Error: {}", e),
+            AppError::InputError(info) => write!(f, "Input Error: {}", info),
+        }
     }
 }
 
-impl From<serde_json::Error> for AgendaError {
+impl From<serde_json::Error> for AppError {
     fn from(e: serde_json::Error) -> Self {
-        AgendaError {
-            kind: String::from("serde"),
-            message: e.to_string(),
-        }
+        AppError::SerdeError(e)
     }
 }
 
-impl From<std::io::Error> for AgendaError {
+impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
-        AgendaError {
-            kind: String::from("io"),
-            message: e.to_string(),
-        }
+        AppError::IOError(e)
     }
 }

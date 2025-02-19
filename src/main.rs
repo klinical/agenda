@@ -10,5 +10,5 @@ fn main() {
         }
     }
 
-    agenda::run();
+    agenda::run().expect("TODO: panic message");
 }
