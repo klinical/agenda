@@ -34,10 +34,10 @@ pub fn run() {
     };
 
     // Ensure the file descriptor is freed before we move forward
-    std::mem::drop(list);
+    drop(list);
 
     loop {
-        if let Some(cmd) = prompt() {
+        if let Some(cmd) = prompt_command() {
             if command::process(cmd, &mut agenda).is_err() {
                 println!("Failed processing command!\n");
             } else {
@@ -69,19 +69,8 @@ fn open_data_file(path: &str, mode: &str) -> File {
     }
 }
 
-pub fn prompt() -> Option<Command> {
-    print!("input a command ('help' for help): ");
-    let input = read_terminal_input();
-
-    // Got Some input that was Ok
-    if let Some(input) = input {
-        command::command_from_input(&input)
-    } else {
-        None
-    }
-}
-
-fn read_terminal_input() -> Option<String> {
+pub fn prompt_input(prompt: &str) -> Option<String> {
+    print!("{}", prompt);
     let _ = io::stdout().flush();
     let stdin = io::stdin();
     let x = stdin.lock().lines().next();
@@ -89,5 +78,16 @@ fn read_terminal_input() -> Option<String> {
     match x {
         Some(Ok(x)) => Some(x),
         _ => None,
+    }
+}
+
+pub fn prompt_command() -> Option<Command> {
+    let input = prompt_input("input a command ('help' for help): ");
+
+    // Got Some input that was Ok
+    if let Some(input) = input {
+        command::command_from_input(&input)
+    } else {
+        None
     }
 }

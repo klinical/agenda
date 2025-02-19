@@ -71,6 +71,10 @@ pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> error::AgendaResult
 }
 
 pub fn create_new_task(agenda: &mut agenda::Agenda) {
+    // Prompt user for a task-name, description, and priority
+    // priority will need to be validated, and re-prompted if necessary
+    // along the way, provide a way to quit/cancel the operation
+
     if let Some((name, desc, priority)) = new_task_dialog() {
         // Create a task object
         let new_task = task::Task::from(desc, priority);
@@ -89,8 +93,7 @@ pub fn create_new_task(agenda: &mut agenda::Agenda) {
 }
 
 pub fn update_task(agenda: &mut agenda::Agenda) {
-    print!("\nEnter task name to update: ");
-    let target = crate::read_terminal_input();
+    let target = crate::prompt_input("\nEnter task name to update: ");
 
     // Locate the task or quit if input is empty
     let target = match target {
@@ -109,16 +112,14 @@ pub fn update_task(agenda: &mut agenda::Agenda) {
         }
     };
 
-    print!("\nEnter property name to update (desc, priority): ");
-    let property = if let Some(property) = crate::read_terminal_input() {
+    let property = if let Some(property) = crate::prompt_input("\nEnter property name to update (desc, priority): ") {
         property
     } else {
         println!("Nothing to do.");
         return;
     };
 
-    print!("\nEnter new value for {}: ", &property);
-    let value = if let Some(value) = crate::read_terminal_input() {
+    let value = if let Some(value) = crate::prompt_input(&format!("\nEnter new value for {}: ", &property)) {
         value
     } else {
         println!("Nothing to do.");
@@ -139,22 +140,20 @@ pub fn update_task(agenda: &mut agenda::Agenda) {
     println!("\nTask updated successfully.\n");
 }
 
+// This might need to just be completely blown away
 fn new_task_dialog() -> Option<(String, String, String)> {
-    print!("Enter a taskname: ");
-    let new_task_name = crate::read_terminal_input();
-    print!("Enter a description: ");
-    let new_task_description = crate::read_terminal_input();
-
-    println!(
+    let new_task_name = crate::prompt_input("Enter a task name: ");
+    let new_task_description = crate::prompt_input("Enter a description: ");
+    let new_task_priority = crate::prompt_input(
         "\nAvailable priorities (and their aliases) (not case-sensitive)
         Important and Urgent ('iu')
         Important and Not Urgent ('inu')
         Not Important and Urgent ('niu')
-        Not Important and Not Urgent ('ninu')\n
-        "
-    );
-    print!("Enter task priority, from one of the choices listed above: ");
-    let new_task_priority = crate::read_terminal_input();
+        Not Important and Not Urgent ('ninu')\n\nEnter task priority, from one of the choices listed above:");
+
+    if let Some(priority) = &new_task_priority {
+        println!("You entered: {}", priority);
+    }
 
     match (new_task_name, new_task_description, new_task_priority) {
         (Some(name), Some(description), Some(priority)) => Some((name, description, priority)),
@@ -176,8 +175,7 @@ pub fn display_help() {
 }
 
 pub fn remove_task(agenda: &mut agenda::Agenda) {
-    print!("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ");
-    if let Some(target) = crate::read_terminal_input() {
+    if let Some(target) = crate::prompt_input("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ") {
         if let Some((name, task)) = agenda.remove_task(&target) {
             println!(
                 "Removed task: {} with description: {}.",
