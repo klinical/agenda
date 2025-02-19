@@ -1,4 +1,4 @@
-<h1 align="center">Agenda_rs</h1>
+<h1 align="center">Agenda_RS</h1>
 <h2 align="center">"A todo app from the 80's"</h2>
 
 <h3 align="center">Why (did you make this)?</h3>
