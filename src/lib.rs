@@ -12,13 +12,16 @@ use std::{
     {io, io::Write},
 };
 
-pub fn run(path: &str) {
+pub static F_DIR: &str = "./data/";
+static F_PATH: &str = "./data/agenda.json";
+
+pub fn run() {
     println!("** AGENDA - A simple todo app from the 80's!");
     println!("** You may list the available commands by running 'help'\n");
 
-    let existed = std::path::Path::new(path).exists();
+    let existed = std::path::Path::new(F_PATH).exists();
 
-    let mut list = open_data_file(path, "r");
+    let mut list = open_data_file(F_PATH, "r");
 
     let mut agenda = if existed {
         Agenda::read_from_file(&mut list).unwrap()
@@ -38,7 +41,7 @@ pub fn run(path: &str) {
             if command::process(cmd, &mut agenda).is_err() {
                 println!("Failed processing command!\n");
             } else {
-                let mut file = open_data_file(path, "w");
+                let mut file = open_data_file(F_PATH, "w");
 
                 file.write_all(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
                     .expect("Failed to write updated Agenda to data file.");
