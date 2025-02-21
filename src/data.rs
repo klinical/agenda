@@ -5,7 +5,6 @@ use std::{collections::HashMap, fs, fs::File, io::Read, path};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
-    file_path: String,
     task_list: TaskList,
     cfg: config::Config,
 }
@@ -21,9 +20,8 @@ impl Database {
             let mut data = String::new();
             let _ = File::open(file_path)?.read_to_string(&mut data)?;
             Ok(Database {
-                file_path: String::from(file_path),
                 task_list: serde_json::from_str(&data)?,
-                cfg: config::Config::new()
+                cfg: config::Config::new(file_path)
             })
         } else {
             if !path::Path::new(F_DIR).exists() {
@@ -31,15 +29,14 @@ impl Database {
             }
             File::create(file_path)?;
             Ok(Database {
-                file_path: String::from(file_path),
                 task_list: TaskList::new(),
-                cfg: config::Config::new()
+                cfg: config::Config::new(file_path)
             })
         }
     }
 
     pub fn save(&self) -> AgendaResult<()> {
-        let mut file = File::create(&self.file_path)?;
+        let mut file = File::create(&self.cfg.file_path())?;
         Ok(file.write_all(serde_json::to_string_pretty(&self)?.as_bytes())?)
     }
 
