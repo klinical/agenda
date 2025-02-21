@@ -1,62 +1,36 @@
-mod agenda;
-mod command;
-mod config;
-mod error;
-mod task;
+pub mod agenda;
+pub mod command;
+pub mod config;
+pub mod error;
+pub mod task;
 
-use crate::agenda::Agenda;
-use crate::command::Command;
 use std::{
     fs::File,
     io::{BufRead, ErrorKind},
     {io, io::Write},
 };
+use std::path;
 use std::str::FromStr;
-use crate::error::{AppError};
 
 pub static F_DIR: &str = "./data/";
-static F_PATH: &str = "./data/agenda.json";
+pub static F_PATH: &str = "./data/agenda.json";
 
-pub fn run() -> Result<(), AppError>{
-    println!("** AGENDA - A simple todo app from the 80's!");
-    println!("** You may list the available commands by running 'help'\n");
-
-    let existed = std::path::Path::new(F_PATH).exists();
-
-    let mut list = open_data_file(F_PATH, "r");
-
-    let mut agenda = if existed {
-        Agenda::read_from_file(&mut list).unwrap()
-    } else {
-        let agenda = Agenda::new();
-        let _ = list
-            .write_all(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
-            .unwrap();
-        agenda
-    };
-
-    // Ensure the file descriptor is freed before we move forward
-    drop(list);
-
-    loop {
-        // First, if there is any errors during input catch it. Then check if the command is valid
-        // Err should be handled here, unless IO error?
-        if let Ok(cmd) = Command::from_str(&prompt_input("input a command ('help' for help): ")?) {
-            if command::process(cmd, &mut agenda).is_err() {
-                println!("Failed processing command!\n");
-            } else {
-                let mut file = open_data_file(F_PATH, "w");
-
-                file.write_all(serde_json::to_string_pretty(&agenda).unwrap().as_bytes())
-                    .expect("Failed to write updated Agenda to data file.");
-            }
+pub fn process_input(agenda: &mut agenda::Agenda) -> Result<(), error::AppError>{
+    // First, if there is any errors during input catch it. Then check if the command is valid
+    let user_input = prompt_input("input a command ('help' for help): ")?;
+    if let Ok(cmd) = command::Command::from_str(&user_input) {
+        if command::Command::process(cmd, agenda).is_err() {
+            println!("Failed processing command!\n");
         } else {
-            println!("Use the 'help' command to see a list of available commands.\n");
+            open_data_file(F_PATH.as_ref(), "w").write_all(serde_json::to_string_pretty(&agenda)?.as_bytes())?;
         }
+    } else {
+        println!("Use the 'help' command to see a list of available commands.\n");
     }
+    Ok(())
 }
 
-fn open_data_file(path: &str, mode: &str) -> File {
+pub fn open_data_file(path: &path::Path, mode: &str) -> File {
     let f = match mode {
         "r" => File::open(path),
         "w" => File::create(path),
@@ -73,11 +47,11 @@ fn open_data_file(path: &str, mode: &str) -> File {
     }
 }
 
-pub fn prompt_input(prompt: &str) -> Result<String, AppError> {
+pub fn prompt_input(prompt: &str) -> Result<String, error::AppError> {
     print!("{}", prompt);
     let _ = io::stdout().flush();
     match io::stdin().lock().lines().next() {
         Some(Ok(line)) => Ok(line),
-        _ => Err(AppError::InputError("Failed to read input.".to_string())),
+        _ => Err(error::AppError::InputError("Failed to read input.".to_string())),
     }
 }

@@ -3,12 +3,12 @@ use std::{collections::hash_map::Iter, collections::HashMap, fs::File, io::Read}
 use crate::{
     config,
     error::AgendaResult,
-    task::{self, Task},
+    task::{Task},
 };
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Agenda {
-    tasks: HashMap<String, task::Task>,
+    tasks: HashMap<String, Task>,
     cfg: config::Config,
 }
 

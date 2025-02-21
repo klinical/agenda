@@ -14,12 +14,19 @@ pub enum Command {
     Exit,
 }
 
-#[derive(Debug, Clone)]
-pub struct CommandError;
+impl Command {
+    pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+        match cmd {
+            Command::Help => display_help(),
+            Command::List => display_list(agenda),
+            Command::Add => create_new_task(agenda)?,
+            Command::Remove => remove_task(agenda)?,
+            Command::Mod => update_task(agenda)?,
+            Command::Clear => clear_screen(),
+            Command::Exit => std::process::exit(0),
+        };
 
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid/unrecognized command.")
+        Ok(())
     }
 }
 
@@ -40,18 +47,13 @@ impl FromStr for Command {
     }
 }
 
-pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> Result<(), AppError> {
-    match cmd {
-        Command::Help => display_help(),
-        Command::List => display_list(agenda),
-        Command::Add => create_new_task(agenda)?,
-        Command::Remove => remove_task(agenda)?,
-        Command::Mod => update_task(agenda)?,
-        Command::Clear => clear_screen(),
-        Command::Exit => std::process::exit(0),
-    };
+#[derive(Debug, Clone)]
+pub struct CommandError;
 
-    Ok(())
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid/unrecognized command.")
+    }
 }
 
 pub fn create_new_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
