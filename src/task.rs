@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
     description: String,
     priority: self::Priority,
@@ -36,7 +36,7 @@ impl Task {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub enum Priority {
     ImportantUrgent,
     ImportantNotUrgent,

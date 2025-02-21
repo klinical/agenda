@@ -1,6 +1,6 @@
 use std::{fmt, str::FromStr};
 
-use crate::{agenda, task};
+use crate::{data, task};
 use crate::error::AppError;
 
 #[derive(Debug, PartialEq)]
@@ -15,7 +15,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn process(cmd: Command, agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+    pub fn process(cmd: Command, agenda: &mut data::Database) -> Result<(), AppError> {
         match cmd {
             Command::Help => display_help(),
             Command::List => display_list(agenda),
@@ -56,7 +56,7 @@ impl fmt::Display for CommandError {
     }
 }
 
-pub fn create_new_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+pub fn create_new_task(agenda: &mut data::Database) -> Result<(), AppError> {
     let name = crate::prompt_input("Enter a task name: ")?;
     let description = crate::prompt_input("Enter a description: ")?;
     let priority = crate::prompt_input(
@@ -79,9 +79,9 @@ pub fn create_new_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
     }
 }
 
-pub fn update_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+pub fn update_task(agenda: &mut data::Database) -> Result<(), AppError> {
     let target = agenda.task(&crate::prompt_input("\nEnter task name to update: ")?);
-    let task = match target {
+    let mut task = match target {
         Some(task) => task,
         None => {
             println!("No task found.");
@@ -120,7 +120,7 @@ pub fn display_help() {
     )
 }
 
-pub fn remove_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
+pub fn remove_task(agenda: &mut data::Database) -> Result<(), AppError> {
     let target = crate::prompt_input("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ")?;
     if let Some((name, task)) = agenda.remove_task(&target) {
         println!(
@@ -135,8 +135,8 @@ pub fn remove_task(agenda: &mut agenda::Agenda) -> Result<(), AppError> {
     }
 }
 
-pub fn display_list(agenda: &agenda::Agenda) {
-    agenda.tasks_iter().for_each(|(name, task)| {
+pub fn display_list(agenda: &data::Database) {
+    agenda.tasks().iter().for_each(|(name, task)| {
         println!(
             "\nTask Name: {}\n  Description: {}\n  Priority: {}\n",
             name,

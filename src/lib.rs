@@ -1,4 +1,4 @@
-pub mod agenda;
+pub mod data;
 pub mod command;
 pub mod config;
 pub mod error;
@@ -15,7 +15,7 @@ use std::str::FromStr;
 pub static F_DIR: &str = "./data/";
 pub static F_PATH: &str = "./data/agenda.json";
 
-pub fn process_input(agenda: &mut agenda::Agenda) -> Result<(), error::AppError>{
+pub fn process_input(agenda: &mut data::Database) -> Result<(), error::AppError>{
     // First, if there is any errors during input catch it. Then check if the command is valid
     let user_input = prompt_input("input a command ('help' for help): ")?;
     if let Ok(cmd) = command::Command::from_str(&user_input) {
