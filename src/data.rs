@@ -1,8 +1,7 @@
 use crate::{config, error::AgendaResult, task::Task, F_DIR};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::{collections::hash_map::Iter, collections::HashMap, fs, fs::File, io::Read, path};
-use serde_json::Value;
+use std::{collections::HashMap, fs, fs::File, io::Read, path};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
@@ -70,10 +69,6 @@ impl TaskList {
 
     fn insert(&mut self, name: String, task: Task) {
         self.tasks.insert(name, task);
-    }
-
-    fn tasks(&self) -> &HashMap<String, Task> {
-        &self.tasks
     }
 
     fn remove_entry(&mut self, taskname: &str) -> Option<(String, Task)> {
