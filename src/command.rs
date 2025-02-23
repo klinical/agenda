@@ -1,7 +1,9 @@
-use std::{fmt, str::FromStr};
-
-use crate::{data, task};
-use crate::error::AppError;
+use std::{fmt};
+use std::fmt::Formatter;
+use dialoguer::{Confirm, Select};
+use crate::{data, constants};
+use crate::error::{AgendaResult, AppError};
+use crate::task::{Priority, Task};
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
@@ -14,96 +16,69 @@ pub enum Command {
     Exit,
 }
 
-impl Command {
-    pub fn process(cmd: Command, agenda: &mut data::Database) -> Result<(), AppError> {
-        match cmd {
-            Command::Help => display_help(),
-            Command::List => display_list(agenda),
-            Command::Add => create_new_task(agenda)?,
-            Command::Remove => remove_task(agenda)?,
-            Command::Mod => update_task(agenda)?,
-            Command::Clear => clear_screen(),
-            Command::Exit => std::process::exit(0),
-        };
-
-        Ok(())
-    }
-}
-
-impl FromStr for Command {
-    type Err = AppError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input {
-            "help" | "h" => Ok(Command::Help),
-            "list" | "ls" => Ok(Command::List),
-            "add" | "a" => Ok(Command::Add),
-            "remove" | "rm" => Ok(Command::Remove),
-            "modify" | "mod" => Ok(Command::Mod),
-            "clear" | "x" => Ok(Command::Clear),
-            "quit" | "q" => Ok(Command::Exit),
-            _ => Err(AppError::InputError("Invalid/unrecognized command.".to_string())),
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Command::Help => write!(f, "View Help"),
+            Command::List => write!(f, "List Tasks"),
+            Command::Add => write!(f, "Add Task"),
+            Command::Remove => write!(f, "Remove Task"),
+            Command::Mod => write!(f, "Modify Task"),
+            Command::Clear => write!(f, "Clear Terminal"),
+            Command::Exit => write!(f, "Quit Program"),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CommandError;
-
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid/unrecognized command.")
+pub fn create_new_task(agenda: &mut data::Database) -> AgendaResult<()> {
+    loop {
+        let name = crate::prompt_input(constants::TASK_NAME_PROMPT)?;
+        let description = crate::prompt_input(constants::TASK_DESCRIPTION_PROMPT)?;
+        let priority = select_priority()?;
+        agenda.add_task(Task::new(name, description, priority))?;
+        if !Confirm::new().with_prompt(constants::ADD_ANOTHER_TASK_CONFIRMATION).interact()? {
+            break;
+        }
     }
+
+    Ok(())
 }
 
-pub fn create_new_task(agenda: &mut data::Database) -> Result<(), AppError> {
-    let name = crate::prompt_input("Enter a task name: ")?;
-    let description = crate::prompt_input("Enter a description: ")?;
-    let priority = crate::prompt_input(
-        "\nAvailable priorities (and their aliases) (not case-sensitive)
-        Important and Urgent ('iu')
-        Important and Not Urgent ('inu')
-        Not Important and Urgent ('niu')
-        Not Important and Not Urgent ('ninu')\n\nEnter task priority, from one of the choices listed above:")?;
-
-    // Need to just set name here.
-    let new_task = task::Task::from(description, priority);
-    // TODO! Problem here is - what if the Priority fails to parse? Instead of sending user all the way back, we should
-    // give the user another chance to select a valid priority, or, let them cancel task creation entirely.
-    match new_task {
-        Ok(task) => {
-            println!("\nNew task\n  Name: {}\n  Description: {}\n  Priority: {}\nCreated sucessfully.\n", name, task.description(), task.priority());
-            Ok(agenda.add_task(name, task))
-        }
-        Err(priority_err) => Err(AppError::InputError(priority_err.to_string())),
-    }
+pub fn select_priority() -> AgendaResult<Priority> {
+    let priorities = Priority::values();
+    let priority_selection = Select::with_theme(&constants::select_theme())
+        .with_prompt(constants::SELECT_PRIORITY_PROMPT)
+        .items(priorities)
+        .default(0)
+        .interact()?;
+    priorities.get(priority_selection).copied().ok_or_else(|| AppError::InputError("Error selecting priority".to_string()))
 }
 
 pub fn update_task(agenda: &mut data::Database) -> Result<(), AppError> {
-    let target = agenda.task(&crate::prompt_input("\nEnter task name to update: ")?);
-    let mut task = match target {
-        Some(task) => task,
-        None => {
-            println!("No task found.");
-            return Ok(());
-        }
-    };
-
-    let property = crate::prompt_input("\nEnter property name to update (desc, priority): ")?;
-    let value = crate::prompt_input(&format!("\nEnter new value for {}: ", &property))?;
-
-    match property.to_lowercase().as_str() {
-        "description" | "desc" => task.set_description(value),
-        "priority" => {
-            if let Err(e) = task.set_priority(value) {
-                println!("{}", e);
-                return Ok(());
-            }
-        }
-        _ => println!("Invalid property!"),
-    }
-
-    println!("\nTask updated successfully.\n");
+    // let target = agenda.task(&crate::prompt_input("\nEnter task name to update: ")?);
+    // let mut task = match target {
+    //     Some(task) => task,
+    //     None => {
+    //         println!("No task found.");
+    //         return Ok(());
+    //     }
+    // };
+    //
+    // let property = crate::prompt_input("\nEnter property name to update (desc, priority): ")?;
+    // let value = crate::prompt_input(&format!("\nEnter new value for {}: ", &property))?;
+    //
+    // match property.to_lowercase().as_str() {
+    //     "description" | "desc" => task.set_description(value),
+    //     "priority" => {
+    //         if let Err(e) = task.set_priority(value) {
+    //             println!("{}", e);
+    //             return Ok(());
+    //         }
+    //     }
+    //     _ => println!("Invalid property!"),
+    // }
+    //
+    // println!("\nTask updated successfully.\n");
     Ok(())
 }
 
@@ -121,29 +96,46 @@ pub fn display_help() {
 }
 
 pub fn remove_task(agenda: &mut data::Database) -> Result<(), AppError> {
-    let target = crate::prompt_input("Enter name of task to be deleted (THIS CANNOT BE UNDONE): ")?;
-    if let Some((name, task)) = agenda.remove_task(&target) {
-        println!(
-            "Removed task: {} with description: {}.",
-            name,
-            task.description()
-        );
-        Ok(())
-    } else {
-        println!("No task with name {} found.", target);
-        Err(AppError::InputError("No task with that name found.".to_string()))
+    loop {
+        let task_list = agenda.tasks().iter().enumerate().map(|(idx, task)| {
+            format!("{}. {}", idx, task.name())
+        }).collect::<Vec<String>>();
+        let task_selection = Select::with_theme(&constants::select_theme())
+            .with_prompt(constants::SELECT_TASK_PROMPT)
+            .items(&task_list)
+            .default(0)
+            .interact_opt()?;
+
+        // Some(i) if ... chains. The first branch handles the case of there being Some(idx) and the user confirms yes to remove task.
+        // then, it removes the task and does another confirmation whether to delete another or not (and break if so).
+        // The second Some handles the case the user picks an index, but decides not to remove the task and continues the loop (thus, the idx is ignored via _).
+        // Finally, None handles no index being picked, and breaks the loop.
+        match task_selection {
+            Some(index) if Confirm::new().with_prompt(constants::REMOVE_TASK_CONFIRMATION).interact()? => {
+                agenda.remove_task(index)?;
+                if !Confirm::new().with_prompt(constants::REMOVE_ANOTHER_TASK_CONFIRMATION).interact()? {
+                    break;
+                }
+            },
+            Some(_) => continue,
+            None => break,
+        }
     }
+
+    Ok(())
 }
 
 pub fn display_list(agenda: &data::Database) {
-    agenda.tasks().iter().for_each(|(name, task)| {
+    println!("Available tasks:");
+    for (idx, task) in agenda.tasks().iter().enumerate() {
         println!(
-            "\nTask Name: {}\n  Description: {}\n  Priority: {}\n",
-            name,
+            "\n{}: {}\n {}\n  Priority: {}\n",
+            idx,
+            task.name(),
             task.description(),
             task.priority(),
         )
-    })
+    }
 }
 
 // Tested on Manjaro Linux

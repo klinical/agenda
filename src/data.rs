@@ -1,4 +1,4 @@
-use crate::{config, error::AgendaResult, task::Task, F_DIR};
+use crate::{config, constants, error::AgendaResult, task::Task};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::{collections::HashMap, fs, fs::File, io::Read, path};
@@ -11,68 +11,74 @@ pub struct Database {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TaskList {
-    tasks: HashMap<String, Task>,
+    tasks: Vec<Task>,
 }
 
 impl Database {
+    fn new(file_path: &str) -> Self {
+        Self {
+            task_list: TaskList::new(),
+            cfg: config::Config::new(file_path)
+        }
+    }
+
     pub fn open(file_path: &str) -> AgendaResult<Self> {
         if path::Path::new(file_path).exists() {
             let mut data = String::new();
             let _ = File::open(file_path)?.read_to_string(&mut data)?;
-            Ok(Database {
-                task_list: serde_json::from_str(&data)?,
-                cfg: config::Config::new(file_path)
-            })
+            Ok(serde_json::from_str(&data)?)
         } else {
-            if !path::Path::new(F_DIR).exists() {
-                fs::create_dir_all(F_DIR)?;
+            // Create directory
+            if !path::Path::new(constants::F_DIR).exists() {
+                fs::create_dir_all(constants::F_DIR)?;
             }
-            File::create(file_path)?;
-            Ok(Database {
-                task_list: TaskList::new(),
-                cfg: config::Config::new(file_path)
-            })
+            // Init empty DB and then write it to file
+            let db = Self::new(file_path);
+            File::create(file_path)?.write_all(serde_json::to_string_pretty(&db)?.as_bytes())?;
+            Ok(db)
         }
     }
 
-    pub fn save(&self) -> AgendaResult<()> {
+    fn save(&self) -> AgendaResult<()> {
         let mut file = File::create(&self.cfg.file_path())?;
         Ok(file.write_all(serde_json::to_string_pretty(&self)?.as_bytes())?)
     }
 
-    pub fn add_task(&mut self, name: String, task: Task) {
-        self.task_list.insert(name, task);
+    pub fn add_task(&mut self, task: Task) -> AgendaResult<()> {
+        self.task_list.add(task);
+        self.save()
     }
 
-    pub fn tasks(&self) -> &HashMap<String, Task> {
+    pub fn tasks(&self) -> &Vec<Task> {
         &self.task_list.tasks
     }
 
-    pub fn remove_task(&mut self, taskname: &str) -> Option<(String, Task)> {
-        self.task_list.remove_entry(taskname)
+    pub fn remove_task(&mut self, task_id: usize) -> AgendaResult<()> {
+        self.task_list.remove(task_id);
+        self.save()
     }
 
-    pub fn task(&mut self, key: &str) -> Option<Task> {
-        self.task_list.task(key)
+    pub fn task(&mut self, task_id: usize) -> Option<Task> {
+        self.task_list.task(task_id)
     }
 }
 
 impl TaskList {
     fn new() -> Self {
         TaskList {
-            tasks: HashMap::new(),
+            tasks: Vec::new(),
         }
     }
 
-    fn insert(&mut self, name: String, task: Task) {
-        self.tasks.insert(name, task);
+    fn add(&mut self, task: Task) {
+        self.tasks.push(task);
     }
 
-    fn remove_entry(&mut self, taskname: &str) -> Option<(String, Task)> {
-        self.tasks.remove_entry(taskname)
+    fn remove(&mut self, id: usize) {
+        let _ = self.tasks.remove(id);
     }
 
-    fn task(&self, key: &str) -> Option<Task> {
-        self.tasks.get(key).cloned()
+    fn task(&self, id: usize) -> Option<Task> {
+        self.tasks.get(id).cloned()
     }
 }

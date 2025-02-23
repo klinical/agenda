@@ -1,16 +1,24 @@
-use agenda::{data::{Database}, F_PATH};
+use dialoguer::Select;
+use agenda::{constants, data::{Database}, process_command};
+use agenda::command::Command;
+
 
 fn main() {
-    display_welcome();
-    let mut database = Database::open(F_PATH.as_ref()).expect("Failed to open/create database. Ensure this application is run with all required permissions.");
-    loop {
-        if let Err(e) = agenda::process_input(&mut database) {
-            println!("Failed processing input: {}", e);
-        }
-    }
-}
-
-fn display_welcome() {
-    println!("** AGENDA - A simple todo app from the 80's!");
+    let mut database = Database::open(constants::F_PATH.as_ref()).expect("Failed to open/create database. Ensure this application is run with all required permissions.");
+    println!("** AGENDA - A simple todo app from the 90's!");
     println!("** You may list the available commands by running 'help'.\n");
+    let actions = vec![Command::Help, Command::Add, Command::Mod, Command::Remove, Command::List, Command::Clear, Command::Exit];
+    loop {
+        let selection = Select::with_theme(&constants::select_theme())
+            .with_prompt("Choose an action")
+            .items(&actions)
+            .default(0)
+            .interact()
+            .expect("Failed to select an action.");
+        let command = actions.get(selection).unwrap_or_else(|| {
+            println!("Invalid selection.");
+            &Command::Help
+        });
+        process_command(command, &mut database).unwrap_or_else(|err| println!("Could not perform command '{}': {}", command, err));
+    }
 }

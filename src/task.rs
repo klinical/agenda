@@ -1,20 +1,20 @@
 use std::fmt;
-
+use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
+    name: String,
     description: String,
-    priority: self::Priority,
+    priority: Priority,
 }
 
 impl Task {
-    pub fn from(description: String, priority: String) -> Result<Self, PriorityError> {
-        Ok(Task {
-            description,
-            priority: Priority::from(priority)?,
-        })
+    pub fn new(name: impl Into<String>, description: impl Into<String>, priority: Priority) -> Self {
+        Self { name: name.into(), description: description.into(), priority }
     }
+
+    pub fn name(&self) -> &str { &self.name }
 
     pub fn description(&self) -> &str {
         &self.description
@@ -28,67 +28,37 @@ impl Task {
         self.description = new_description
     }
 
-    pub fn set_priority(&mut self, new_priority: String) -> Result<(), PriorityError> {
-        self.priority = Priority::from(new_priority)?;
+    pub fn set_priority(&mut self, new_priority: Priority) {
+        self.priority = new_priority;
+    }
+}
 
-        Ok(())
+impl fmt::Display for Task {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}] {}", self.name, self.description)
     }
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum Priority {
-    ImportantUrgent,
-    ImportantNotUrgent,
-    NotImportantUrgent,
-    NotImportantNotUrgent,
-}
-
-#[derive(Debug)]
-pub struct PriorityError;
-
-impl fmt::Display for PriorityError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid/unrecognized priority.")
-    }
+    Low,
+    Medium,
+    High,
 }
 
 impl Priority {
-    fn from(priority: String) -> Result<Self, PriorityError> {
-        match priority.to_lowercase().as_str() {
-            "important and urgent" | "iu" => Ok(Self::ImportantUrgent),
-            "important and not urgent" | "inu" => Ok(Self::ImportantNotUrgent),
-            "not important and urgent" | "niu" => Ok(Self::NotImportantUrgent),
-            "not important and not urgent" | "ninu" => Ok(Self::NotImportantNotUrgent),
-            _ => Err(PriorityError),
-        }
+    pub fn values() -> &'static [Priority] {
+        &[Priority::Low, Priority::Medium, Priority::High]
     }
 }
 
-impl ToString for Priority {
-    fn to_string(&self) -> String {
-        match *self {
-            Self::ImportantUrgent => "Important and Urgent".to_owned(),
-            Self::ImportantNotUrgent => "Important and Not Urgent".to_owned(),
-            Self::NotImportantUrgent => "Not Important and Urgent".to_owned(),
-            Self::NotImportantNotUrgent => "Not Important and Not Urgent".to_owned(),
+impl fmt::Display for Priority {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Priority::Low => write!(f, "Low"),
+            Priority::Medium => write!(f, "Medium"),
+            Priority::High => write!(f, "High"),
         }
-    }
-}
-
-mod tests {
-    #[test]
-    fn create_task_from() {
-        use crate::task::*;
-
-        let expected = Task {
-            description: "description".to_owned(),
-            priority: Priority::ImportantNotUrgent,
-        };
-
-        let description = "description";
-        let new_task = Task::from(description.to_owned(), "inu".to_owned()).unwrap();
-
-        assert_eq!(expected, new_task);
     }
 }
