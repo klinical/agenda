@@ -5,14 +5,8 @@ pub mod error;
 pub mod task;
 pub mod constants;
 
-use std::{
-    io::{BufRead,},
-    {io, io::Write},
-};
 
-use std::str::FromStr;
 use dialoguer::Input;
-use dialoguer::theme::ColorfulTheme;
 use crate::command::{clear_screen, create_new_task, display_help, display_list, remove_task, update_task, Command};
 use crate::data::Database;
 use crate::error::{AgendaResult};

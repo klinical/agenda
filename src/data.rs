@@ -1,7 +1,7 @@
 use crate::{config, constants, error::AgendaResult, task::Task};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::{collections::HashMap, fs, fs::File, io::Read, path};
+use std::{fs, fs::File, io::Read, path};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
