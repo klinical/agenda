@@ -2,29 +2,26 @@ use std::{fmt};
 use std::fmt::Formatter;
 use dialoguer::{Confirm, Select};
 use crate::{data, constants};
+use crate::data::Database;
 use crate::error::{AgendaResult, AppError};
-use crate::task::{Priority, Task};
+use crate::task::{Priority, Property, Task};
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
-    Help,
     List,
     Add,
     Remove,
     Mod,
-    Clear,
     Exit,
 }
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Command::Help => write!(f, "View Help"),
             Command::List => write!(f, "List Tasks"),
             Command::Add => write!(f, "Add Task"),
             Command::Remove => write!(f, "Remove Task"),
             Command::Mod => write!(f, "Modify Task"),
-            Command::Clear => write!(f, "Clear Terminal"),
             Command::Exit => write!(f, "Quit Program"),
         }
     }
@@ -54,57 +51,73 @@ pub fn select_priority() -> AgendaResult<Priority> {
     priorities.get(priority_selection).copied().ok_or_else(|| AppError::InputError("Error selecting priority".to_string()))
 }
 
-pub fn update_task(agenda: &mut data::Database) -> Result<(), AppError> {
-    // let target = agenda.task(&crate::prompt_input("\nEnter task name to update: ")?);
-    // let mut task = match target {
-    //     Some(task) => task,
-    //     None => {
-    //         println!("No task found.");
-    //         return Ok(());
-    //     }
-    // };
-    //
-    // let property = crate::prompt_input("\nEnter property name to update (desc, priority): ")?;
-    // let value = crate::prompt_input(&format!("\nEnter new value for {}: ", &property))?;
-    //
-    // match property.to_lowercase().as_str() {
-    //     "description" | "desc" => task.set_description(value),
-    //     "priority" => {
-    //         if let Err(e) = task.set_priority(value) {
-    //             println!("{}", e);
-    //             return Ok(());
-    //         }
-    //     }
-    //     _ => println!("Invalid property!"),
-    // }
-    //
-    // println!("\nTask updated successfully.\n");
+pub fn select_task(database: &Database) -> AgendaResult<Option<usize>> {
+    let task_list = database.tasks().iter().enumerate().map(|(idx, task)| {
+        format!("{}. {}", idx, task.name())
+    }).collect::<Vec<String>>();
+    Ok(Select::with_theme(&constants::select_theme())
+        .with_prompt(constants::SELECT_TASK_PROMPT)
+        .items(&task_list)
+        .default(0)
+        .interact_opt()?)
+}
+
+pub fn select_property() -> AgendaResult<Option<Property>> {
+    let properties = Property::values();
+    let property_selection = Select::with_theme(&constants::select_theme())
+        .with_prompt(constants::SELECT_PROPERTY_PROMPT)
+        .items(Property::values())
+        .default(0)
+        .interact_opt()?;
+    match property_selection {
+        Some(idx) => {
+            let property = properties.get(idx).cloned().ok_or_else(|| AppError::InputError("Error selecting property".to_string()))?;
+            Ok(Some(property))
+        }
+        None => Ok(None)
+    }
+}
+
+pub fn update_task(database: &mut Database) -> Result<(), AppError> {
+    if database.tasks().is_empty() {
+        return Ok(println!("No tasks to update."));
+    }
+
+    while let Some(task_id) = select_task(database)? {
+        if let Some(property) = select_property()? {
+            match property {
+                Property::Name => {
+                    let new_name = crate::prompt_input(constants::UPDATE_TASK_NAME_PROMPT)?;
+                    database.update_task_name(task_id, new_name)?;
+                }
+                Property::Description => {
+                    let new_description = crate::prompt_input(constants::UPDATE_TASK_DESCRIPTION_PROMPT)?;
+                    database.update_task_name(task_id, new_description)?;
+                }
+                Property::Priority => {
+                    let new_priority = select_priority()?;
+                    println!("New priority: {}", new_priority);
+                    database.update_task_priority(task_id, new_priority)?;
+                }
+            }
+
+            if !Confirm::new().with_prompt(constants::UPDATE_ANOTHER_TASK_CONFIRMATION).interact()? {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
     Ok(())
 }
 
-pub fn display_help() {
-    println!(
-        "\n** Available commands (and their aliases) **\n
-    'help'   ('h'):   Displays this menu
-    'list'   ('ls'):  List all current tasks
-    'add'    ('a'):   Open the new task creation dialog
-    'remove' ('rm'):  Open the remove task dialog
-    'modify' ('mod'): Open the task modification dialog
-    'clear'  ('x'):   Clear/flush the terminal screen
-    'quit'   ('q'):   Quit the program\n"
-    )
-}
+pub fn remove_task(database: &mut Database) -> Result<(), AppError> {
+    if database.tasks().is_empty() {
+        return Ok(println!("No tasks to remove."));
+    }
 
-pub fn remove_task(agenda: &mut data::Database) -> Result<(), AppError> {
     loop {
-        let task_list = agenda.tasks().iter().enumerate().map(|(idx, task)| {
-            format!("{}. {}", idx, task.name())
-        }).collect::<Vec<String>>();
-        let task_selection = Select::with_theme(&constants::select_theme())
-            .with_prompt(constants::SELECT_TASK_PROMPT)
-            .items(&task_list)
-            .default(0)
-            .interact_opt()?;
+        let task_selection = select_task(database)?;
 
         // Some(i) if ... chains. The first branch handles the case of there being Some(idx) and the user confirms yes to remove task.
         // then, it removes the task and does another confirmation whether to delete another or not (and break if so).
@@ -112,7 +125,7 @@ pub fn remove_task(agenda: &mut data::Database) -> Result<(), AppError> {
         // Finally, None handles no index being picked, and breaks the loop.
         match task_selection {
             Some(index) if Confirm::new().with_prompt(constants::REMOVE_TASK_CONFIRMATION).interact()? => {
-                agenda.remove_task(index)?;
+                database.remove_task(index)?;
                 if !Confirm::new().with_prompt(constants::REMOVE_ANOTHER_TASK_CONFIRMATION).interact()? {
                     break;
                 }
@@ -125,9 +138,13 @@ pub fn remove_task(agenda: &mut data::Database) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn display_list(agenda: &data::Database) {
+pub fn display_list(database: &Database) {
+    if database.tasks().is_empty() {
+        return println!("No tasks to update.");
+    }
+
     println!("Available tasks:");
-    for (idx, task) in agenda.tasks().iter().enumerate() {
+    for (idx, task) in database.tasks().iter().enumerate() {
         println!(
             "\n{}: {}\n {}\n  Priority: {}\n",
             idx,
@@ -136,11 +153,6 @@ pub fn display_list(agenda: &data::Database) {
             task.priority(),
         )
     }
-}
-
-// Tested on Manjaro Linux
-pub fn clear_screen() {
-    print!("{esc}c", esc = 27 as char)
 }
 
 #[cfg(test)]

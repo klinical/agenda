@@ -2,6 +2,8 @@ use crate::{config, constants, error::AgendaResult, task::Task};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::{fs, fs::File, io::Read, path};
+use crate::error::AppError::InputError;
+use crate::task::{Priority};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
@@ -58,8 +60,23 @@ impl Database {
         self.save()
     }
 
-    pub fn task(&mut self, task_id: usize) -> Option<Task> {
-        self.task_list.task(task_id)
+    pub fn task_mut(&mut self, task_id: usize) -> AgendaResult<&mut Task>  {
+        self.task_list.task_mut(task_id).ok_or_else(|| InputError("Task not found".to_string()))
+    }
+
+    pub fn update_task_name(&mut self, task_id: usize, name: impl Into<String>) -> AgendaResult<()> {
+        self.task_mut(task_id)?.set_name(name.into());
+        self.save()
+    }
+
+    pub fn update_task_description(&mut self, task_id: usize, description: impl Into<String>) -> AgendaResult<()> {
+        self.task_mut(task_id)?.set_description(description.into());
+        self.save()
+    }
+
+    pub fn update_task_priority(&mut self, task_id: usize, priority: Priority) -> AgendaResult<()> {
+        self.task_mut(task_id)?.set_priority(priority);
+        self.save()
     }
 }
 
@@ -78,7 +95,7 @@ impl TaskList {
         let _ = self.tasks.remove(id);
     }
 
-    fn task(&self, id: usize) -> Option<Task> {
-        self.tasks.get(id).cloned()
+    fn task_mut(&mut self, id: usize) -> Option<&mut Task> {
+        self.tasks.get_mut(id)
     }
 }

@@ -20,16 +20,20 @@ impl Task {
         &self.description
     }
 
-    pub fn priority(&self) -> String {
-        self.priority.to_string()
+    pub fn priority(&self) -> &Priority {
+        &self.priority
     }
+
+    pub fn set_name(&mut self, name: String) { self.name = name; }
 
     pub fn set_description(&mut self, new_description: String) {
         self.description = new_description
     }
 
     pub fn set_priority(&mut self, new_priority: Priority) {
+        println!("{0}, {1}", self.priority, new_priority);
         self.priority = new_priority;
+        println!("{0}, {1}", self.priority, new_priority);
     }
 }
 
@@ -59,6 +63,29 @@ impl fmt::Display for Priority {
             Priority::Low => write!(f, "Low"),
             Priority::Medium => write!(f, "Medium"),
             Priority::High => write!(f, "High"),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Property {
+    Name,
+    Description,
+    Priority
+}
+
+impl Property {
+    pub fn values() -> &'static [Property] {
+        &[Property::Name, Property::Description, Property::Priority]
+    }
+}
+
+impl fmt::Display for Property {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Property::Name => write!(f, "Name"),
+            Property::Description => write!(f, "Description"),
+            Property::Priority => write!(f, "Priority")
         }
     }
 }
